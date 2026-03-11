@@ -1,0 +1,29 @@
+# Baseline CNN configuration: no TimesFM dependency
+model:
+  backbone: "cnn"
+  context_len: 512
+  horizon_len: 128
+  pooling: "none"
+  freeze_backbone: false
+  extraction_mode: "direct"
+
+classifier:
+  type: "linear"
+  hidden_dims: [256]
+  dropout: 0.1
+
+training:
+  epochs: 200
+  batch_size: 32
+  learning_rate: 1.0e-3
+  backbone_lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: "cosine"
+  early_stopping_patience: 20
+
+data:
+  dataset: "ECG200"
+  normalize: true
+  seed: 42
+
+device: "mps"  # Use "cuda" if GPU is available, otherwise fallback to "cpu"

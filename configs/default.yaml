@@ -1,0 +1,29 @@
+# Default configuration: TimesFM + Linear Probing
+model:
+  backbone: "google/timesfm-1.0-200m-pytorch"
+  context_len: 512
+  horizon_len: 128
+  pooling: "mean"
+  freeze_backbone: true
+  extraction_mode: "hook"
+
+classifier:
+  type: "linear"
+  hidden_dims: [256]
+  dropout: 0.1
+
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 1.0e-3
+  backbone_lr: 1.0e-5
+  weight_decay: 1.0e-4
+  scheduler: "cosine"
+  early_stopping_patience: 15
+
+data:
+  dataset: "ECG200"
+  normalize: true
+  seed: 42
+
+device: "mps"  # Use "cuda" if GPU is available, otherwise fallback to "cpu"
