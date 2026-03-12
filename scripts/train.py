@@ -145,6 +145,7 @@ def main():
     print("\n" + "=" * 55)
     print(f"  Dataset:       {dataset_name}")
     print(f"  Backbone:      {config['model']['backbone']}")
+    print(f"  Pooling:       {config['model']['pooling']}")
     print(f"  Freeze:        {config['model']['freeze_backbone']}")
     print(f"  Classifier:    {config['classifier']['type']}")
     print(f"  ─────────────────────────────────")

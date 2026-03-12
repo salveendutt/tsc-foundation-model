@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--config", type=str, default=None, help="Path to config YAML")
     parser.add_argument("--dataset", type=str, default=None)
-    parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--device", type=str, default="mps" if torch.backends.mps.is_available() else "cpu")
     parser.add_argument("--batch-size", type=int, default=64)
     args = parser.parse_args()
 

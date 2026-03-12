@@ -103,7 +103,7 @@ def main():
                         help="'cnn' or HuggingFace repo ID")
     parser.add_argument("--output-dir", type=str, default="embeddings")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--pooling", type=str, default="mean",
                         choices=["mean", "max", "last"])
     parser.add_argument("--visualize", action="store_true",
@@ -113,6 +113,9 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     config = load_config(args.config)
+    if args.device:
+        config["device"] = args.device
+    device = config.get("device", "cpu")
     if args.backbone:
         config["model"]["backbone"] = args.backbone
 
@@ -137,17 +140,17 @@ def main():
             repo_id=backbone_name,
             context_len=config["model"]["context_len"],
             horizon_len=config["model"]["horizon_len"],
-            device=args.device,
+            device=device,
         )
-    backbone = backbone.to(args.device)
+    backbone = backbone.to(device)
 
     # Extract
     print(f"Extracting embeddings for {args.dataset}...")
     train_emb, train_labels = extract_embeddings(
-        backbone, train_loader, args.device, args.pooling
+        backbone, train_loader, device, args.pooling
     )
     test_emb, test_labels = extract_embeddings(
-        backbone, test_loader, args.device, args.pooling
+        backbone, test_loader, device, args.pooling
     )
 
     print(f"  Train embeddings: {train_emb.shape}")

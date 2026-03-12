@@ -295,6 +295,15 @@ class TimesFMBackbone(nn.Module):
         forecasts = np.array(forecasts)
         return torch.from_numpy(forecasts).float().to(device)
 
+    def _apply(self, fn):
+        """Prevent moving TimesFM internals to non-CPU devices.
+
+        TimesFM's forecast() API creates CPU tensors internally, so the
+        core model must remain on CPU. Outputs are moved to the target
+        device explicitly in _extract_via_hooks / _extract_via_forecast.
+        """
+        return self
+
     def freeze(self):
         """Freeze all backbone parameters."""
         if self._core_model is not None:

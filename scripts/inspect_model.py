@@ -37,7 +37,7 @@ def main():
         repo_id=args.repo,
         context_len=512,
         horizon_len=128,
-        device="cpu",
+        device="mps" if torch.backends.mps.is_available() else "cpu",
     )
 
     backbone.print_structure()

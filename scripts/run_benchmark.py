@@ -118,7 +118,7 @@ def main():
     )
     parser.add_argument("--config", type=str, default=None)
     parser.add_argument("--output-dir", type=str, default="outputs/benchmark")
-    parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--device", type=str, default=None)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -127,7 +127,7 @@ def main():
     )
 
     config = load_config(args.config)
-    if args.device:
+    if args.device is not None:
         config["device"] = args.device
 
     datasets = args.datasets or DEFAULT_DATASETS
