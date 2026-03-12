@@ -30,9 +30,9 @@ Test F1 (m):   0.8901
   Freeze:        True
   Classifier:    linear
   ─────────────────────────────────
-  Test Accuracy: 0.8800
-  Test F1 (w):   0.8783
-  Test F1 (m):   0.8663
+  Test Accuracy: 0.8600
+  Test F1 (w):   0.8600
+  Test F1 (m):   0.8481
 =======================================================
 
 
