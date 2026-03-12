@@ -1,0 +1,135 @@
+
+=======================================================
+Dataset:       ECG200
+Backbone:      cnn
+Pooling:       none
+Freeze:        False
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.8900
+Test F1 (w):   0.8880
+Test F1 (m):   0.8766
+=======================================================
+
+=======================================================
+Dataset:       ECG200
+Backbone:      google/timesfm-1.0-200m-pytorch
+Pooling:       attention
+Freeze:        True
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.9000
+Test F1 (w):   0.8993
+Test F1 (m):   0.8901
+=======================================================
+
+=======================================================
+  Dataset:       ECG200
+  Backbone:      google/timesfm-2.5-200m-pytorch
+  Pooling:       attention
+  Freeze:        True
+  Classifier:    linear
+  ─────────────────────────────────
+  Test Accuracy: 0.8800
+  Test F1 (w):   0.8783
+  Test F1 (m):   0.8663
+=======================================================
+
+
+=======================================================
+Dataset:       ElectricDevices
+Backbone:      cnn
+Freeze:        False
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.7326
+Test F1 (w):   0.7167
+Test F1 (m):   0.6509
+=======================================================
+
+=======================================================
+  Dataset:       ElectricDevices
+  Backbone:      google/timesfm-2.5-200m-pytorch
+  Pooling:       attention
+  Freeze:        True
+  Classifier:    linear
+  ─────────────────────────────────
+  Test Accuracy: 0.6524
+  Test F1 (w):   ?
+  Test F1 (m):   ?
+=======================================================
+
+
+
+=======================================================
+Dataset:       GunPoint
+Backbone:      cnn
+Freeze:        False
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 1.0000
+Test F1 (w):   1.0000
+Test F1 (m):   1.0000
+=======================================================
+
+=======================================================
+Dataset:       GunPoint
+Backbone:      google/timesfm-1.0-200m-pytorch
+Pooling:       attention
+Freeze:        True
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.7733
+Test F1 (w):   0.7731
+Test F1 (m):   0.7730
+=======================================================
+
+=======================================================
+  Dataset:       GunPoint
+  Backbone:      google/timesfm-2.5-200m-pytorch
+  Pooling:       attention
+  Freeze:        True
+  Classifier:    linear
+  ─────────────────────────────────
+  Test Accuracy: 0.7933
+  Test F1 (w):   0.7933
+  Test F1 (m):   0.7933
+=======================================================
+
+
+
+=======================================================
+Dataset:       Wafer
+Backbone:      cnn
+Freeze:        False
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.9974
+Test F1 (w):   0.9974
+Test F1 (m):   0.9933
+=======================================================
+
+
+
+=======================================================
+Dataset:       FordA
+Backbone:      cnn
+Freeze:        False
+Classifier:    linear
+─────────────────────────────────
+Test Accuracy: 0.9432
+Test F1 (w):   0.9432
+Test F1 (m):   0.9431
+=======================================================
+
+=======================================================
+  Dataset:       FordA
+  Backbone:      google/timesfm-2.5-200m-pytorch
+  Pooling:       attention
+  Freeze:        True
+  Classifier:    linear
+  ─────────────────────────────────
+  Test Accuracy: 0.9030
+  Test F1 (w):   ?
+  Test F1 (m):   ?
+=======================================================

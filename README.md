@@ -47,35 +47,31 @@ Input Time Series [B, T]
        Predictions
 ```
 
-### Embedding Extraction: How Hooks Work
+### Embedding Extraction: Direct Forward Pass
 
 TimesFM was designed **only for forecasting** — its public API is `forecast()`, which takes a time series and returns predicted future values. It has no built-in way to output internal representations (embeddings). But classification needs those internal representations, not forecasts.
 
-**The problem**: We need the rich hidden states that TimesFM computes *internally* during a forward pass, but the model never exposes them.
+**The problem**: We need the rich hidden states that TimesFM computes *internally* during a forward pass, but the `forecast()` API discards them.
 
-**The solution**: PyTorch **forward hooks**. A hook is a callback function that PyTorch lets you attach to any layer inside a neural network. When data flows through that layer during a forward pass, the hook fires and captures the layer's output — without modifying the model's code or behavior.
+**The solution**: Call the **core transformer's `forward()` directly**, bypassing the autoregressive decoding loop, `force_flip_invariance` double pass, and numpy round-trips. We replicate TimesFM's input preprocessing pipeline and grab `output_embeddings` straight from the model.
 
 Concretely, here's what happens:
 
 ```
-1. We register a hook on TimesFM's StackedDecoder (the transformer block)
-2. We call forecast() as normal — TimesFM processes the input through all 20 transformer layers
-3. As data passes through the StackedDecoder, our hook silently captures the output: [B, num_patches, 1280]
-4. We ignore the forecast result and use the captured hidden states as embeddings for classification
+1. Left-pad the input time series to context_len (matching forecast()'s behavior)
+2. Global mean/std normalization
+3. Patch the input into fixed-size chunks (patch_len=32)
+4. Per-patch running-stats → RevIN normalization
+5. Forward through all 20 transformer layers
+6. Extract output_embeddings: [B, num_real_patches, 1280]
+7. Strip padded patches, keeping only those corresponding to real input data
 ```
 
-It's like tapping a wire - the model runs normally, but we intercept the signal at a specific point.
-
-There are two extraction modes (set via `extraction_mode` in config):
-
-| Mode | Output Shape | Description |
-|---|---|---|
-| **`hook`** (default) | `[B, num_patches, 1280]` | Captures transformer hidden states via forward hook. Rich patch-level representations. |
-| **`forecast`** | `[B, horizon_len]` | Uses the raw forecast output as features. Simple but loses internal representations. |
+This is significantly faster than calling `forecast()` and intercepting hidden states via hooks, because it skips the autoregressive decoding loop entirely.
 
 ### Pooling Strategies
 
-When using hook extraction, the backbone outputs a 3D tensor `[B, num_patches, 1280]` — one 1280-dim vector per input patch. The classifier needs a single fixed-size vector per sample. Pooling collapses the patch dimension:
+When using the TimesFM backbone, the model outputs a 3D tensor `[B, num_patches, 1280]` — one 1280-dim vector per input patch. The classifier needs a single fixed-size vector per sample. Pooling collapses the patch dimension:
 
 | Strategy | Config Value | Operation | When to Use |
 |---|---|---|---|
@@ -83,7 +79,7 @@ When using hook extraction, the backbone outputs a 3D tensor `[B, num_patches, 1
 | **Max Pooling** | `"max"` | Element-wise maximum across patches | Emphasizes the most activated features. Good when discriminative info is localized. |
 | **Last Token** | `"last"` | Takes the final patch's embedding | Mirrors how decoder-only models (like GPT) work — the last token attends to all previous tokens. |
 | **Attention Pooling** | `"attention"` | Learnable weighted average (trained end-to-end) | Learns which patches matter most for classification. Has extra trainable parameters. |
-| **None** | `"none"` | No pooling (used for CNN backbone and forecast mode) | When backbone already outputs `[B, D]`. |
+| **None** | `"none"` | No pooling (used for CNN backbone) | When backbone already outputs `[B, D]`. |
 
 ### Classification Heads
 
@@ -103,7 +99,7 @@ After pooling, the fixed-size embedding `[B, D]` is fed to a classification head
 | **Fine-tuning** | Train all parameters with differential LR (backbone: 1e-5, head: 1e-3) | Larger datasets, maximize performance |
 | **Gradual Unfreezing** *(planned)* | Progressively unfreeze transformer layers epoch-by-epoch | Medium datasets, avoid catastrophic forgetting |
 
-> **Note on fine-tuning**: Currently, TimesFM's `forecast()` API is non-differentiable (data passes through numpy). This means gradients do not flow back to the backbone even with `freeze_backbone: false`. True fine-tuning and gradual unfreezing both require a differentiable forward pass that bypasses `forecast()` — this is a planned improvement. The `backbone.unfreeze(num_layers=N)` method exists but has no effect until the forward pass is differentiable.
+> **Note on fine-tuning**: The embedding extraction calls the core transformer's `forward()` directly with `torch.no_grad()`. To enable true fine-tuning with gradient flow, this `no_grad` guard would need to be removed and the backbone unfrozen. The `backbone.unfreeze(num_layers=N)` method exists in preparation for this.
 
 ### Baseline
 
@@ -139,11 +135,11 @@ TimesFM requires separate installation:
 ```bash
 pip install timesfm
 
-# The checkpoint (~800MB) downloads automatically on first use from:
-# https://huggingface.co/google/timesfm-1.0-200m-pytorch
+# The checkpoint (~925MB) downloads automatically on first use from:
+# https://huggingface.co/google/timesfm-2.5-200m-pytorch
 ```
 
-> **Note for macOS**: Use `device: cpu` in the config. TimesFM works with the CPU backend on Apple Silicon. MPS support depends on your PyTorch version.
+> **Note for macOS**: Apple Silicon (MPS) is supported. The model is automatically placed on the MPS device when configured with `device: mps`. CPU also works as a fallback.
 
 ## Quick Start
 
@@ -185,7 +181,7 @@ Configuration is managed via YAML files in `configs/`. Key settings:
 
 ```yaml
 model:
-  backbone: "google/timesfm-1.0-200m-pytorch"  # or "cnn" for baseline
+  backbone: "google/timesfm-2.5-200m-pytorch"  # or "cnn" for baseline
   context_len: 512          # Max input length (TimesFM context window)
   pooling: "mean"           # mean, max, last, attention
   freeze_backbone: true     # true for linear probing, false for fine-tuning

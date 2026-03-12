@@ -5,7 +5,6 @@ model:
   horizon_len: 128
   pooling: "attention"
   freeze_backbone: true
-  extraction_mode: "hook"
 
 classifier:
   type: "linear"

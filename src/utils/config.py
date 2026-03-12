@@ -16,7 +16,6 @@ DEFAULT_CONFIG = {
         "horizon_len": 128,
         "pooling": "mean",
         "freeze_backbone": True,
-        "extraction_mode": "hook",
     },
     "classifier": {
         "type": "linear",

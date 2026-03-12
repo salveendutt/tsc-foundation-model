@@ -40,7 +40,6 @@ class TSCFoundationModel(nn.Module):
         backbone_repo: str = "google/timesfm-2.5-200m-pytorch",
         context_len: int = 512,
         horizon_len: int = 128,
-        extraction_mode: str = "hook",
         pooling: str = "mean",
         classifier_type: str = "linear",
         classifier_hidden_dims: list = None,
@@ -66,20 +65,15 @@ class TSCFoundationModel(nn.Module):
                 context_len=context_len,
                 horizon_len=horizon_len,
                 device=device,
-                extraction_mode=extraction_mode,
             )
             if freeze_backbone:
                 self.backbone.freeze()
 
         # Determine feature dimension
         feature_dim = self.backbone.hidden_dim
-        if hasattr(self.backbone, "extraction_mode"):
-            if self.backbone.extraction_mode == "forecast":
-                feature_dim = horizon_len
-                self._pooling_type = "none"
-            elif self.backbone.extraction_mode == "direct":
-                # CNN backbone outputs [B, D] directly, no pooling needed
-                self._pooling_type = "none"
+        if isinstance(self.backbone, SimpleCNNBackbone):
+            # CNN backbone outputs [B, D] directly, no pooling needed
+            self._pooling_type = "none"
 
         self.feature_dim = feature_dim
 

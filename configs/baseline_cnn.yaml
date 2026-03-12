@@ -5,7 +5,6 @@ model:
   horizon_len: 128
   pooling: "none"
   freeze_backbone: false
-  extraction_mode: "direct"
 
 classifier:
   type: "linear"

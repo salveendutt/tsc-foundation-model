@@ -141,7 +141,6 @@ def main():
             context_len=config["model"]["context_len"],
             horizon_len=config["model"]["horizon_len"],
             device=device,
-            extraction_mode=config["model"]["extraction_mode"],
         )
     backbone = backbone.to(device)
 
