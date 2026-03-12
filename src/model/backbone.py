@@ -31,7 +31,7 @@ class TimesFMBackbone(nn.Module):
 
     def __init__(
         self,
-        repo_id: str = "google/timesfm-1.0-200m-pytorch",
+        repo_id: str = "google/timesfm-2.5-200m-pytorch",
         context_len: int = 512,
         horizon_len: int = 128,
         device: str = "cpu",
@@ -51,6 +51,10 @@ class TimesFMBackbone(nn.Module):
             self._hooks = []
             self._setup_hooks()
 
+    def _is_v2p5(self) -> bool:
+        """Check if this is a TimesFM 2.5 model."""
+        return "2.5" in self.repo_id or "2p5" in self.repo_id
+
     def _load_model(self):
         """Load the TimesFM checkpoint."""
         try:
@@ -61,9 +65,58 @@ class TimesFMBackbone(nn.Module):
                 "Install it with: pip install timesfm"
             )
 
+        if self._is_v2p5():
+            self._load_model_2p5(timesfm)
+        else:
+            self._load_model_v1(timesfm)
+
+        # Find the core PyTorch model
+        self._core_model = self._find_core_model()
+        self.hidden_dim = self._find_hidden_dim()
+        logger.info(f"TimesFM loaded: hidden_dim={self.hidden_dim}")
+
+    def _load_model_2p5(self, timesfm):
+        """Load a TimesFM 2.5 checkpoint using the new API."""
+        if not hasattr(timesfm, "TimesFM_2p5_200M_torch"):
+            raise RuntimeError(
+                "TimesFM 2.5 requires the latest timesfm package. "
+                "Install from GitHub: pip install git+https://github.com/google-research/timesfm.git#egg=timesfm[torch]"
+            )
+
+        # Disable torch.compile on macOS / CPU — it's not supported
+        use_compile = self._device not in ("cpu", "mps")
+
+        try:
+            self.tfm = timesfm.TimesFM_2p5_200M_torch.from_pretrained(
+                self.repo_id, torch_compile=use_compile,
+            )
+        except TypeError:
+            # Workaround: newer huggingface_hub passes extra kwargs (e.g. proxies)
+            # that the timesfm constructor doesn't accept. Load manually.
+            from huggingface_hub import hf_hub_download
+
+            self.tfm = timesfm.TimesFM_2p5_200M_torch(torch_compile=use_compile)
+            model_path = hf_hub_download(
+                repo_id=self.repo_id,
+                filename="model.safetensors",
+            )
+            self.tfm.model.load_checkpoint(model_path, torch_compile=use_compile)
+
+        self.tfm.compile(
+            timesfm.ForecastConfig(
+                max_context=self.context_len,
+                max_horizon=self.horizon_len,
+                per_core_batch_size=32,
+                normalize_inputs=True,
+            )
+        )
+        logger.info("Loaded TimesFM 2.5 via from_pretrained")
+
+    def _load_model_v1(self, timesfm):
+        """Load a TimesFM 1.0/2.0 checkpoint using the legacy API."""
         backend = "cpu" if self._device in ("cpu", "mps") else "gpu"
 
-        # Try the newer API first (timesfm >= 1.2)
+        # Try the v1 API (timesfm <= 1.3)
         try:
             self.tfm = timesfm.TimesFm(
                 hparams=timesfm.TimesFmHparams(
@@ -76,7 +129,6 @@ class TimesFMBackbone(nn.Module):
                 ),
             )
         except (TypeError, AttributeError):
-            # Older API fallback
             try:
                 self.tfm = timesfm.TimesFm(
                     context_len=self.context_len,
@@ -90,14 +142,9 @@ class TimesFMBackbone(nn.Module):
                 self.tfm.load_from_checkpoint(repo_id=self.repo_id)
             except Exception as e:
                 raise RuntimeError(
-                    f"Failed to load TimesFM with both API versions. "
-                    f"Please check your timesfm package version. Error: {e}"
+                    f"Failed to load TimesFM v1 model. "
+                    f"For 1.0/2.0 models use: pip install timesfm==1.3.0. Error: {e}"
                 )
-
-        # Find the core PyTorch model
-        self._core_model = self._find_core_model()
-        self.hidden_dim = self._find_hidden_dim()
-        logger.info(f"TimesFM loaded: hidden_dim={self.hidden_dim}")
 
     def _find_core_model(self) -> nn.Module:
         """Locate the internal PyTorch nn.Module."""
@@ -128,7 +175,7 @@ class TimesFMBackbone(nn.Module):
         for obj in [self._core_model, self.tfm, getattr(self.tfm, "hparams", None)]:
             if obj is None:
                 continue
-            for attr in ["model_dim", "d_model", "hidden_size", "embed_dim"]:
+            for attr in ["md", "model_dim", "d_model", "hidden_size", "embed_dim"]:
                 val = getattr(obj, attr, None)
                 if isinstance(val, int) and val > 0:
                     return val
@@ -152,6 +199,13 @@ class TimesFMBackbone(nn.Module):
             return
 
         target = None
+
+        # For TimesFM 2.5: hook the last layer in stacked_xf (nn.ModuleList)
+        if self._is_v2p5():
+            stacked_xf = getattr(self._core_model, "stacked_xf", None)
+            if isinstance(stacked_xf, nn.ModuleList) and len(stacked_xf) > 0:
+                last_layer = stacked_xf[-1]
+                target = (f"stacked_xf.{len(stacked_xf) - 1}", last_layer)
 
         # Priority 1: The StackedDecoder / transformer container module itself
         # (captures the full transformer output = final hidden states)
@@ -200,9 +254,17 @@ class TimesFMBackbone(nn.Module):
     def _hook_fn(self, module, input, output):
         """Capture module output during forward pass.
 
+        Only captures the first invocation per forward pass. TimesFM 2.5's
+        compiled_decode calls model.decode() twice when force_flip_invariance
+        is enabled (once on x, once on -x). We want only the real-input pass.
+
         Handles various output formats from different model architectures.
         Prefers 3D tensors [batch, seq, hidden] over 4D attention weights.
         """
+        # Skip if we already captured embeddings for this forward pass
+        if "emb" in self._captured:
+            return
+
         if isinstance(output, tuple):
             # Pick the best tensor: prefer 3D [batch, seq, hidden_dim] over
             # 4D [batch, heads, seq, seq] (attention weights)
@@ -257,9 +319,13 @@ class TimesFMBackbone(nn.Module):
         """Extract embeddings by running forecast and capturing hook outputs."""
         self._captured.clear()
         batch_size = x_np.shape[0]
-        freq = [0] * batch_size
+        seq_len = x_np.shape[1]
 
-        _ = self.tfm.forecast(list(x_np), freq)
+        if self._is_v2p5():
+            _ = self.tfm.forecast(horizon=self.horizon_len, inputs=list(x_np))
+        else:
+            freq = [0] * batch_size
+            _ = self.tfm.forecast(list(x_np), freq)
 
         if "emb" in self._captured:
             emb = self._captured["emb"]
@@ -273,6 +339,16 @@ class TimesFMBackbone(nn.Module):
             if emb.shape[0] > batch_size:
                 emb = emb[:batch_size]
 
+            # TimesFM 2.5 left-pads inputs to max_context, producing many
+            # zero-padded patch embeddings. Strip them to keep only patches
+            # corresponding to real input data.
+            if self._is_v2p5() and emb.dim() == 3:
+                import math
+                patch_len = getattr(self._core_model, "p", 32)
+                num_real_patches = math.ceil(seq_len / patch_len)
+                if num_real_patches < emb.shape[1]:
+                    emb = emb[:, -num_real_patches:]
+
             return emb.to(device)
 
         # Fallback to forecast mode if hooks didn't capture anything
@@ -282,9 +358,12 @@ class TimesFMBackbone(nn.Module):
     def _extract_via_forecast(self, x_np: np.ndarray, device) -> torch.Tensor:
         """Use forecast outputs as features."""
         batch_size = x_np.shape[0]
-        freq = [0] * batch_size
 
-        result = self.tfm.forecast(list(x_np), freq)
+        if self._is_v2p5():
+            result = self.tfm.forecast(horizon=self.horizon_len, inputs=list(x_np))
+        else:
+            freq = [0] * batch_size
+            result = self.tfm.forecast(list(x_np), freq)
 
         # forecast() returns (point_forecasts, quantile_forecasts) or just forecasts
         if isinstance(result, tuple):

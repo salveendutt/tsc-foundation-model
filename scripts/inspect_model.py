@@ -21,7 +21,7 @@ def main():
     parser.add_argument(
         "--repo",
         type=str,
-        default="google/timesfm-1.0-200m-pytorch",
+        default="google/timesfm-2.5-200m-pytorch",
         help="HuggingFace repo ID",
     )
     args = parser.parse_args()

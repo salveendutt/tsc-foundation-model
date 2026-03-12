@@ -37,9 +37,10 @@ class TSCFoundationModel(nn.Module):
     def __init__(
         self,
         num_classes: int,
-        backbone_repo: str = "google/timesfm-1.0-200m-pytorch",
+        backbone_repo: str = "google/timesfm-2.5-200m-pytorch",
         context_len: int = 512,
         horizon_len: int = 128,
+        extraction_mode: str = "hook",
         pooling: str = "mean",
         classifier_type: str = "linear",
         classifier_hidden_dims: list = None,
@@ -65,6 +66,7 @@ class TSCFoundationModel(nn.Module):
                 context_len=context_len,
                 horizon_len=horizon_len,
                 device=device,
+                extraction_mode=extraction_mode,
             )
             if freeze_backbone:
                 self.backbone.freeze()

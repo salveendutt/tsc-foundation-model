@@ -1,6 +1,6 @@
 # Default configuration: TimesFM + Linear Probing
 model:
-  backbone: "google/timesfm-1.0-200m-pytorch"
+  backbone: "google/timesfm-2.5-200m-pytorch"
   context_len: 512
   horizon_len: 128
   pooling: "attention"
@@ -13,7 +13,7 @@ classifier:
   dropout: 0.1
 
 training:
-  epochs: 100
+  epochs: 20
   batch_size: 32
   learning_rate: 1.0e-3
   backbone_lr: 1.0e-5

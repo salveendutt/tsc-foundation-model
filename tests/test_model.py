@@ -174,7 +174,7 @@ class TestConfig:
         config = load_config()
         assert "model" in config
         assert "training" in config
-        assert config["model"]["backbone"] == "google/timesfm-1.0-200m-pytorch"
+        assert config["model"]["backbone"] == "google/timesfm-2.5-200m-pytorch"
 
     def test_deep_merge(self):
         base = {"a": {"b": 1, "c": 2}, "d": 3}

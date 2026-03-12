@@ -270,3 +270,14 @@ This project is for academic research purposes.
 ---
 
 *PhD Research Project — Time Series Classification with Foundation Models*
+# TODO
+Add model comparison based on datasets:
+
+Dataset	Best model in reference results	Accuracy
+ECG200	MultiRocket, MultiRocketHydra, ROCKET	0.92
+GunPoint	multiple tied: HIVECOTEV2, InceptionTime, MultiRocket, Hydra, MultiRocketHydra, Arsenal, ROCKET	1.00
+FordA	DrCIF	0.9682
+Wafer	HIVECOTEV2, Hydra	1.00
+ElectricDevices	HIVECOTEV2	0.7613
+A few takeaways matter for your project:
+

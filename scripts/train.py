@@ -120,6 +120,7 @@ def main():
         backbone_repo=config["model"]["backbone"],
         context_len=config["model"]["context_len"],
         horizon_len=config["model"]["horizon_len"],
+        extraction_mode=config["model"]["extraction_mode"],
         pooling=config["model"]["pooling"],
         classifier_type=config["classifier"]["type"],
         classifier_hidden_dims=config["classifier"]["hidden_dims"],

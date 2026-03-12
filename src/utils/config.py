@@ -11,7 +11,7 @@ from typing import Any
 
 DEFAULT_CONFIG = {
     "model": {
-        "backbone": "google/timesfm-1.0-200m-pytorch",
+        "backbone": "google/timesfm-2.5-200m-pytorch",
         "context_len": 512,
         "horizon_len": 128,
         "pooling": "mean",
